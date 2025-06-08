@@ -381,7 +381,7 @@ with col1:
     for i, rc in enumerate(st.session_state.rate_changes_a_inputs):
         st.write(f"金利変動 {i+1}")
         # Adjust column widths for smaller delete button (e.g., 0.49, 0.49, 0.02)
-        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.48, 0.48, 0.04]) # Adjusted column widths
+        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.4, 0.4, 0.04]) # Adjusted column widths
         with col_rc_a1:
             month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=rc['month'], step=1, key=f'la_rc_month_{i}')
         with col_rc_a2:
