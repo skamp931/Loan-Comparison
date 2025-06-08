@@ -294,7 +294,7 @@ with col1:
     st.markdown("---")
     st.subheader("ローンAの繰り上げ返済")
     early_repayment_amount_a = st.number_input("繰り上げ返済額 (円)", min_value=0, value=0, step=100000, key='la_er_amt', help="一度に繰り上げ返済する金額です。")
-    early_repayment_month_a = st.number_input("繰り上げ返済を行う月 (1-{})".format(loan_term_years_a * 12),
+    early_repayment_month_a = st.number_input(f"繰り上げ返済を行う月 (1-{loan_term_years_a * 12})",
                                               min_value=0, max_value=loan_term_years_a * 12, value=0, step=1, key='la_er_month', help="ローン開始から何ヶ月目に繰り上げ返済を行うか指定します。")
     early_repayments_a = []
     if early_repayment_amount_a > 0 and early_repayment_month_a > 0:
@@ -310,7 +310,7 @@ with col1:
         st.write(f"金利変動 {i+1}")
         col_rc_a1, col_rc_a2 = st.columns(2)
         with col_rc_a1:
-            month = st.number_input(f"変更月 (1-{})".format(loan_term_years_a * 12), min_value=1, max_value=loan_term_years_a * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_a*12 else loan_term_years_a*12, step=1, key=f'la_rc_month_{i}')
+            month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_a*12 else loan_term_years_a*12, step=1, key=f'la_rc_month_{i}')
         with col_rc_a2:
             rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=max(0.01, annual_interest_rate_a_initial - 0.1*(i+1)), step=0.01, key=f'la_rc_rate_{i}')
         rate_changes_a_temp_inputs.append({'month': month, 'new_rate': rate})
@@ -346,7 +346,7 @@ with col2:
     st.markdown("---")
     st.subheader("ローンBの繰り上げ返済")
     early_repayment_amount_b = st.number_input("繰り上げ返済額 (円)", min_value=0, value=0, step=100000, key='lb_er_amt', help="一度に繰り上げ返済する金額です。")
-    early_repayment_month_b = st.number_input("繰り上げ返済を行う月 (1-{})".format(loan_term_years_b * 12),
+    early_repayment_month_b = st.number_input(f"繰り上げ返済を行う月 (1-{loan_term_years_b * 12})",
                                               min_value=0, max_value=loan_term_years_b * 12, value=0, step=1, key='lb_er_month', help="ローン開始から何ヶ月目に繰り上げ返済を行うか指定します。")
     early_repayments_b = []
     if early_repayment_amount_b > 0 and early_repayment_month_b > 0:
@@ -362,7 +362,7 @@ with col2:
         st.write(f"金利変動 {i+1}")
         col_rc_b1, col_rc_b2 = st.columns(2)
         with col_rc_b1:
-            month = st.number_input(f"変更月 (1-{})".format(loan_term_years_b * 12), min_value=1, max_value=loan_term_years_b * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_b*12 else loan_term_years_b*12, step=1, key=f'lb_rc_month_{i}')
+            month = st.number_input(f"変更月 (1-{loan_term_years_b * 12})", min_value=1, max_value=loan_term_years_b * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_b*12 else loan_term_years_b*12, step=1, key=f'lb_rc_month_{i}')
         with col_rc_b2:
             rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=max(0.01, annual_interest_rate_b_initial - 0.1*(i+1)), step=0.01, key=f'lb_rc_rate_{i}')
         rate_changes_b_temp_inputs.append({'month': month, 'new_rate': rate})
