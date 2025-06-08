@@ -140,11 +140,13 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
 
     # 金利変更と繰り上げ返済を月でソート
     if rate_changes:
+        # Filter out rate changes that occur before or at month 0
         rate_changes_sorted = sorted([rc for rc in rate_changes if rc['month'] > 0], key=lambda x: x['month'])
     else:
         rate_changes_sorted = []
 
     if early_repayments:
+        # Filter out early repayments that occur before or at month 0 or have zero amount
         early_repayments_sorted = sorted([er for er in early_repayments if er['month'] > 0 and er['amount'] > 0], key=lambda x: x['month'])
     else:
         early_repayments_sorted = []
@@ -266,6 +268,24 @@ $M_k = M_P + I_k$
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("※繰り上げ返済や金利変動は、上記数式に基づいて毎月再計算されます。")
+
+# --- Sidebar for Q&A ---
+st.sidebar.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
+
+st.sidebar.subheader("Q: 「ローンAの残高が残っています。」と表示されるのはなぜですか？")
+st.sidebar.markdown("""
+**A:** このメッセージは、設定した返済期間（年数）と月々の返済額では、ローンが完済されずにシミュレーション期間が終了してしまう場合に表示されます。
+考えられる理由としては、以下の点が挙げられます。
+
+* **繰り上げ返済額が不足している:** 繰り上げ返済を行ったにもかかわらず、返済期間短縮や総支払額の減少効果が期待通りに現れていない場合。
+* **返済期間が短い:** 設定した返済期間（年数）が、借入額に対して短すぎる場合。
+* **金利が高い:** 金利が高く、月々の利息負担が大きくなっている場合。
+* **初期借入額や頭金が不適切:** 借入額に対して頭金が少なすぎるか、初期借入額が大きすぎる場合。
+
+これらの条件を見直すことで、ローンが完済されるように調整することができます。
+""")
+
+st.sidebar.markdown("---")
 
 # --- Loan Input Sections ---
 col1, col2 = st.columns(2)
