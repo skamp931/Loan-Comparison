@@ -372,7 +372,8 @@ with col1:
 
     for i, rc in enumerate(st.session_state.rate_changes_a_inputs):
         st.write(f"金利変動 {i+1}")
-        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.45, 0.45, 0.1]) # Add column for delete button
+        # Adjust column widths for smaller delete button
+        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.475, 0.475, 0.05]) # Adjusted column widths
         with col_rc_a1:
             month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=rc['month'], step=1, key=f'la_rc_month_{i}')
         with col_rc_a2:
@@ -389,20 +390,20 @@ with col1:
     # Apply deletion after the loop
     if delete_index_a != -1:
         del st.session_state.rate_changes_a_inputs[delete_index_a]
-        st.experimental_rerun() # Rerun to reflect the deletion immediately
+        st.rerun() # Rerun to reflect the deletion immediately
 
     add_rc_a_button = st.button("ローンAの金利変動を追加", key='add_rc_a')
     if add_rc_a_button:
         if len(st.session_state.rate_changes_a_inputs) < 10:
             st.session_state.rate_changes_a_inputs.append({'month': 1, 'new_rate': annual_interest_rate_a_initial})
-            st.experimental_rerun() # Rerun to show new input immediately
+            st.rerun() # Rerun to show new input immediately
         else:
             st.warning("金利変動は最大10回まで追加できます。")
 
     reset_rc_a_button = st.button("ローンAの金利変動をリセット", key='reset_rc_a')
     if reset_rc_a_button:
         st.session_state.rate_changes_a_inputs = []
-        st.experimental_rerun() # Rerun to clear inputs immediately
+        st.rerun() # Rerun to clear inputs immediately
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -442,7 +443,8 @@ with col2:
 
     for i, rc in enumerate(st.session_state.rate_changes_b_inputs):
         st.write(f"金利変動 {i+1}")
-        col_rc_b1, col_rc_b2, col_rc_b3 = st.columns([0.45, 0.45, 0.1]) # Add column for delete button
+        # Adjust column widths for smaller delete button
+        col_rc_b1, col_rc_b2, col_rc_b3 = st.columns([0.475, 0.475, 0.05]) # Adjusted column widths
         with col_rc_b1:
             month = st.number_input(f"変更月 (1-{loan_term_years_b * 12})", min_value=1, max_value=loan_term_years_b * 12, value=rc['month'], step=1, key=f'lb_rc_month_{i}')
         with col_rc_b2:
@@ -459,20 +461,20 @@ with col2:
     # Apply deletion after the loop
     if delete_index_b != -1:
         del st.session_state.rate_changes_b_inputs[delete_index_b]
-        st.experimental_rerun() # Rerun to reflect the deletion immediately
+        st.rerun() # Rerun to reflect the deletion immediately
 
     add_rc_b_button = st.button("ローンBの金利変動を追加", key='add_rc_b')
     if add_rc_b_button:
         if len(st.session_state.rate_changes_b_inputs) < 10:
             st.session_state.rate_changes_b_inputs.append({'month': 1, 'new_rate': annual_interest_rate_b_initial})
-            st.experimental_rerun() # Rerun to show new input immediately
+            st.rerun() # Rerun to show new input immediately
         else:
             st.warning("金利変動は最大10回まで追加できます。")
 
     reset_rc_b_button = st.button("ローンBの金利変動をリセット", key='reset_rc_b')
     if reset_rc_b_button:
         st.session_state.rate_changes_b_inputs = []
-        st.experimental_rerun() # Rerun to clear inputs immediately
+        st.rerun() # Rerun to clear inputs immediately
 
     st.markdown('</div>', unsafe_allow_html=True)
 
