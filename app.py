@@ -72,7 +72,7 @@ st.markdown("""
     }
     .loan-section {
         background-color: #fdfdfd;
-        border: 1px solid #e0e0e0;
+        border: 0.5px solid #e0e0e0; /* Changed from 1px to 0.5px */
         border-radius: 10px;
         padding: 15px; /* Reduced padding for thinner appearance */
         margin-bottom: 30px;
@@ -98,10 +98,15 @@ st.markdown("""
     }
     .sidebar-header {
         font-size: 1.3em;
-        color: #2c3e50;
+        color: white; /* Changed to white for black background */
         margin-bottom: 15px;
         border-bottom: 1px solid #ccc;
         padding-bottom: 10px;
+        font-weight: bold; /* Make text bold */
+        background-color: #2c3e50; /* Darker shade, close to black but still readable */
+        padding: 10px; /* Add padding to the header for the background */
+        border-radius: 5px; /* Add some rounded corners */
+        text-align: center; /* Center the text in the header */
     }
     .st-emotion-cache-16txt4v p { /* Adjust specific streamlit text color */
         color: #333333;
@@ -562,6 +567,7 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
             x=alt.X('年数:O', title='年数'), # Nominal for discrete years
             y=alt.Y('年間支払額 (万円)', title='年間支払額 (万円)'),
             color=alt.Color('ローン', title='ローン'),
+            xOffset='ローン', # Offset bars for different loans
             tooltip=['年数', alt.Tooltip('年間支払額 (万円)', format='.1f'), 'ローン']
         ).properties(
             title='年間支払額の推移'
