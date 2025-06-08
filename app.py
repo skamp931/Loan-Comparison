@@ -52,11 +52,15 @@ st.markdown("""
         background-color: #2980b9;
     }
     /* Specific styling for delete buttons to make them smaller */
-    .stButton button[key*='delete_la_rc_'],
-    .stButton button[key*='delete_lb_rc_'] {
-        padding: 5px 8px; /* Smaller padding */
-        font-size: 0.8em; /* Smaller font size */
+    /* Targeting buttons with specific keys for delete functionality */
+    .stButton button[key*='delete_la_rc_header_'],
+    .stButton button[key*='delete_lb_rc_header_'] {
+        padding: 3px 5px; /* Even smaller padding for very compact button */
+        font-size: 0.7em; /* Even smaller font size */
         border-radius: 5px;
+        vertical-align: middle; /* Align with text */
+        line-height: 1; /* Ensure text fits in button */
+        height: auto; /* Allow height to adjust to content */
     }
 
     .metric-card {
@@ -379,17 +383,21 @@ with col1:
     delete_index_a = -1
 
     for i, rc in enumerate(st.session_state.rate_changes_a_inputs):
-        st.write(f"金利変動 {i+1}")
-        # Adjust column widths for smaller delete button (e.g., 0.49, 0.49, 0.02)
-        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.4, 0.4, 0.04]) # Adjusted column widths
+        # Create columns for the label and delete button
+        label_col, delete_btn_col = st.columns([0.8, 0.2]) # Adjusted columns for label and small button
+        with label_col:
+            st.write(f"金利変動 {i+1}")
+        with delete_btn_col:
+            # Use st.button directly, the CSS for sizing should apply via key selector
+            if st.button("削除", key=f'delete_la_rc_header_{i}'): # Using a unique key for the delete button
+                delete_index_a = i
+
+        # Create columns for month and rate inputs on the next line
+        col_rc_a1, col_rc_a2 = st.columns([0.5, 0.5])
         with col_rc_a1:
             month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=rc['month'], step=1, key=f'la_rc_month_{i}')
         with col_rc_a2:
             rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=rc['new_rate'], step=0.01, key=f'la_rc_rate_{i}')
-        with col_rc_a3:
-            # Use st.button directly without extra div for alignment if possible, rely on column sizing
-            if st.button("削除", key=f'delete_la_rc_{i}'):
-                delete_index_a = i
         current_rate_changes_a_inputs.append({'month': month, 'new_rate': rate})
 
     # Update session state after all inputs are collected
@@ -450,17 +458,21 @@ with col2:
     delete_index_b = -1
 
     for i, rc in enumerate(st.session_state.rate_changes_b_inputs):
-        st.write(f"金利変動 {i+1}")
-        # Adjust column widths for smaller delete button (e.g., 0.49, 0.49, 0.02)
-        col_rc_b1, col_rc_b2, col_rc_b3 = st.columns([0.48, 0.48, 0.04]) # Adjusted column widths
+        # Create columns for the label and delete button
+        label_col, delete_btn_col = st.columns([0.8, 0.2]) # Adjusted columns for label and small button
+        with label_col:
+            st.write(f"金利変動 {i+1}")
+        with delete_btn_col:
+            # Use st.button directly, the CSS for sizing should apply via key selector
+            if st.button("削除", key=f'delete_lb_rc_header_{i}'): # Using a unique key for the delete button
+                delete_index_b = i
+
+        # Create columns for month and rate inputs on the next line
+        col_rc_b1, col_rc_b2 = st.columns([0.5, 0.5])
         with col_rc_b1:
             month = st.number_input(f"変更月 (1-{loan_term_years_b * 12})", min_value=1, max_value=loan_term_years_b * 12, value=rc['month'], step=1, key=f'lb_rc_month_{i}')
         with col_rc_b2:
             rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=rc['new_rate'], step=0.01, key=f'lb_rc_rate_{i}')
-        with col_rc_b3:
-            # Use st.button directly without extra div for alignment if possible, rely on column sizing
-            if st.button("削除", key=f'delete_lb_rc_{i}'):
-                delete_index_b = i
         current_rate_changes_b_inputs.append({'month': month, 'new_rate': rate})
 
     # Update session state after all inputs are collected
