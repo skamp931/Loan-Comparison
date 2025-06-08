@@ -120,7 +120,7 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
         loan_amount (int): 借入希望額 (円)
         annual_interest_rate (float): 年利 (%)
         loan_term_years (int): 返済期間 (年)
-        repayment_type (str): 返済方法 ("元利均等返済" or "元金均等返済")
+        repayment_type (str): 返済方法 ("元利均等返済" or "元金均等返S")
         down_payment (int): 頭金 (円)
         early_repayments (list): 繰り上げ返済のリスト [(月, 金額), ...]
         rate_changes (list): 金利変更のリスト [(月, 新年利), ...]
@@ -232,58 +232,74 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
 
     return first_month_payment, total_payment, max(0, current_principal), balance_history
 
-# --- Sidebar for Formulas ---
-st.sidebar.markdown('<div class="sidebar-header">シミュレーションに使った数式</div>', unsafe_allow_html=True)
+# --- Sidebar Content ---
+with st.sidebar:
+    st.markdown('<div class="sidebar-header">シミュレーションに使った数式</div>', unsafe_allow_html=True)
+    st.subheader("元利均等返済 (Equal Principal and Interest Repayment)")
+    st.markdown(r"""
+    月々の支払い額 $M$:
+    $M = P \left[ \frac{r(1+r)^n}{(1+r)^n - 1} \right]$
 
-st.sidebar.subheader("元利均等返済 (Equal Principal and Interest Repayment)")
-st.sidebar.markdown(r"""
-月々の支払い額 $M$:
-$M = P \left[ \frac{r(1+r)^n}{(1+r)^n - 1} \right]$
+    ここで、
+    - $P$: 借入元金
+    - $r$: 月利 (年利 / 1200)
+    - $n$: 返済回数 (返済期間(年) $\times$ 12)
+    """)
 
-ここで、
-- $P$: 借入元金
-- $r$: 月利 (年利 / 1200)
-- $n$: 返済回数 (返済期間(年) $\times$ 12)
-""")
+    st.subheader("元金均等返済 (Principal Equal Repayment)")
+    st.markdown(r"""
+    月々の元金返済額 $M_P$:
+    $M_P = \frac{P}{n}$
 
-st.sidebar.subheader("元金均等返済 (Principal Equal Repayment)")
-st.sidebar.markdown(r"""
-月々の元金返済額 $M_P$:
-$M_P = \frac{P}{n}$
+    $k$回目の月々の利息額 $I_k$:
+    $I_k = (P - (k-1)M_P) \times r$
 
-$k$回目の月々の利息額 $I_k$:
-$I_k = (P - (k-1)M_P) \times r$
+    $k$回目の月々の支払い額 $M_k$:
+    $M_k = M_P + I_k$
 
-$k$回目の月々の支払い額 $M_k$:
-$M_k = M_P + I_k$
+    ここで、
+    - $P$: 借入元金
+    - $r$: 月利 (年利 / 1200)
+    - $n$: 返済回数 (返済期間(年) $\times$ 12)
+    - $k$: 返済回 (1, 2, ..., n)
+    """)
+    st.markdown("---")
+    st.markdown("※繰り上げ返済や金利変動は、上記数式に基づいて毎月再計算されます。")
 
-ここで、
-- $P$: 借入元金
-- $r$: 月利 (年利 / 1200)
-- $n$: 返済回数 (返済期間(年) $\times$ 12)
-- $k$: 返済回 (1, 2, ..., n)
-""")
+    # --- サイドバーにQ&Aセクションを配置 ---
+    st.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("※繰り上げ返済や金利変動は、上記数式に基づいて毎月再計算されます。")
+    qa_data = [
+        {
+            "q": "「ローン残高が残っています。」と表示されるのはなぜですか？",
+            "a": """
+            このメッセージは、設定した返済期間（年数）と月々の返済額では、ローンが完済されずにシミュレーション期間が終了してしまう場合に表示されます。
+            例えば、返済期間が**35年**と設定されている場合、35年が経過した時点でまだ残高があることを示します。
 
-# --- Sidebar for Q&A ---
-st.sidebar.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
+            考えられる理由としては、以下の点が挙げられます。
 
-st.sidebar.subheader("Q: 「ローンAの残高が残っています。」と表示されるのはなぜですか？")
-st.sidebar.markdown("""
-**A:** このメッセージは、設定した返済期間（年数）と月々の返済額では、ローンが完済されずにシミュレーション期間が終了してしまう場合に表示されます。
-考えられる理由としては、以下の点が挙げられます。
+            * **繰り上げ返済額が不足している:** 繰り上げ返済を行ったにもかかわらず、返済期間短縮や総支払額の減少効果が期待通りに現れていない場合。
+            * **返済期間が短い:** 設定した返済期間（年数）が、借入額に対して短すぎる場合。
+            * **金利が高い:** 金利が高く、月々の利息負担が大きくなっている場合。
+            * **初期借入額や頭金が不適切:** 借入額に対して頭金が少なすぎるか、初期借入額が大きすぎる場合。
 
-* **繰り上げ返済額が不足している:** 繰り上げ返済を行ったにもかかわらず、返済期間短縮や総支払額の減少効果が期待通りに現れていない場合。
-* **返済期間が短い:** 設定した返済期間（年数）が、借入額に対して短すぎる場合。
-* **金利が高い:** 金利が高く、月々の利息負担が大きくなっている場合。
-* **初期借入額や頭金が不適切:** 借入額に対して頭金が少なすぎるか、初期借入額が大きすぎる場合。
+            これらの条件を見直すことで、ローンが完済されるように調整することができます。
+            """
+        },
+        # 他のQ&A項目をここに追加できます
+        # {
+        #     "q": "別の質問",
+        #     "a": "別の回答"
+        # },
+    ]
 
-これらの条件を見直すことで、ローンが完済されるように調整することができます。
-""")
+    for i, qa in enumerate(qa_data):
+        with st.expander(f"Q{i+1}. {qa['q']}"):
+            st.write(qa['a'])
 
-st.sidebar.markdown("---")
+
+st.markdown("---")
+
 
 # --- Loan Input Sections ---
 col1, col2 = st.columns(2)
@@ -425,7 +441,7 @@ with results_col1:
         st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_a):,} (約{int(monthly_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_a):,} (約{int(total_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
         if final_balance_a > 0:
-            st.warning(f"注: ローンAの残高が残っています: ¥ {int(final_balance_a):,} (約{int(final_balance_a/10000):,}万円)")
+            st.warning(f"注: ローンAの残高が残っています: ¥ {int(final_balance_a):,}")
 
 # Calculate Loan B
 with results_col2:
@@ -441,7 +457,7 @@ with results_col2:
         st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_b):,} (約{int(monthly_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_b):,} (約{int(total_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
         if final_balance_b > 0:
-            st.warning(f"注: ローンBの残高が残っています: ¥ {int(final_balance_b):,} (約{int(final_balance_b/10000):,}万円)")
+            st.warning(f"注: ローンBの残高が残っています: ¥ {int(final_balance_b):,}")
 
 
 # --- Comparison Result ---
