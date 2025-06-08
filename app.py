@@ -623,7 +623,7 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
     df_chart_annual = pd.DataFrame(chart_data_annual)
 
     if not df_chart_annual.empty:
-        chart_annual = alt.Chart(df_chart_annual).mark_line().encode( # mark_barからmark_lineへ
+        chart_annual = alt.Chart(df_chart_annual).mark_bar().encode( # mark_barからmark_lineへ
             x=alt.X('年数', title='年数', axis=alt.Axis(format='d')), # :O から :Q を意識した記述へ
             y=alt.Y('年間支払額 (万円)', title='年間支払額 (万円)'),
             color=alt.Color('ローン', title='ローン'),
