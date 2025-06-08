@@ -1,6 +1,7 @@
 import streamlit as st
 import math
-import pandas as pd # Although not directly used for display, can be useful for debugging/future tables
+import pandas as pd
+import altair as alt
 
 # --- App Configuration ---
 st.set_page_config(layout="wide", page_title="住宅ローン比較アプリ")
@@ -35,7 +36,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
     .stNumberInput, .stSlider, .stRadio {
-        margin-bottom: 15px;
+        margin-bottom: 10px; /* Slightly reduced margin for compactness */
     }
     .stButton > button {
         background-color: #3498db;
@@ -73,7 +74,7 @@ st.markdown("""
         background-color: #fdfdfd;
         border: 1px solid #e0e0e0;
         border-radius: 10px;
-        padding: 20px;
+        padding: 15px; /* Reduced padding for thinner appearance */
         margin-bottom: 30px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.08);
     }
@@ -116,20 +117,20 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
     繰り上げ返済や金利変動も考慮します。
 
     Args:
-        loan_amount (int): 借入希望額
+        loan_amount (int): 借入希望額 (円)
         annual_interest_rate (float): 年利 (%)
         loan_term_years (int): 返済期間 (年)
         repayment_type (str): 返済方法 ("元利均等返済" or "元金均等返済")
-        down_payment (int): 頭金
+        down_payment (int): 頭金 (円)
         early_repayments (list): 繰り上げ返済のリスト [(月, 金額), ...]
         rate_changes (list): 金利変更のリスト [(月, 新年利), ...]
 
     Returns:
-        tuple: (最初の月々の支払い額, 総支払額, 最終残高)
+        tuple: (最初の月々の支払い額, 総支払額, 最終残高, 残高推移リスト)
     """
     principal = loan_amount - down_payment
     if principal <= 0:
-        return 0, 0, 0 # 頭金がローン額以上の場合
+        return 0, 0, 0, [] # 頭金がローン額以上の場合
 
     number_of_payments_total = loan_term_years * 12
 
@@ -137,20 +138,18 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
     total_payment = 0
     first_month_payment = 0 # 最初の月々の支払い額を格納
     payments_made = 0
+    balance_history = [] # 残高推移を保存
 
     # 金利変更と繰り上げ返済を月でソート
     if rate_changes:
-        # Filter out rate changes that occur before or at month 0
         rate_changes_sorted = sorted([rc for rc in rate_changes if rc['month'] > 0], key=lambda x: x['month'])
     else:
         rate_changes_sorted = []
 
     if early_repayments:
-        # Filter out early repayments that occur before or at month 0 or have zero amount
         early_repayments_sorted = sorted([er for er in early_repayments if er['month'] > 0 and er['amount'] > 0], key=lambda x: x['month'])
     else:
         early_repayments_sorted = []
-
 
     # 現在の金利を初期化
     current_annual_rate = annual_interest_rate
@@ -159,6 +158,9 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
     # 毎月シミュレーションを実行
     for month in range(1, int(number_of_payments_total) + 1):
         if current_principal <= 0: # ローンが完済された場合
+            # 残りの期間も履歴を追加 (残高0として)
+            for remaining_month in range(month, int(number_of_payments_total) + 1):
+                balance_history.append({'month': remaining_month, 'balance': 0})
             break
 
         # 金利変更の適用
@@ -166,7 +168,6 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
             if month == rc['month']:
                 current_annual_rate = rc['new_rate']
                 current_monthly_rate = current_annual_rate / 100 / 12
-                # st.sidebar.write(f"月 {month}: 金利が {rc['new_rate']}% に変更されました。") # デバッグ/情報表示
 
         # 返済方法と現在の金利、元金に基づいて月々の支払い額を計算
         if repayment_type == "元利均等返済":
@@ -182,38 +183,30 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
                     monthly_payment = current_principal * (current_monthly_rate * (1 + current_monthly_rate)**remaining_payments) / \
                                       ((1 + current_monthly_rate)**remaining_payments - 1)
                 except ZeroDivisionError:
-                    # 非常に低い金利や長い期間で分母が0になる場合
                     monthly_payment = current_principal / remaining_payments
                 except OverflowError:
                     st.error("計算中にオーバーフローエラーが発生しました。期間または金利を見直してください。")
-                    return 0, 0, current_principal
+                    return 0, 0, current_principal, []
 
             interest_component = current_principal * current_monthly_rate
             principal_component = monthly_payment - interest_component
 
-            # 元金がマイナスにならないように調整
             if principal_component < 0:
-                principal_component = 0 # 利息のみで元金が減らない場合
+                principal_component = 0
             if principal_component > current_principal:
-                principal_component = current_principal # 残元金を超えないように調整
-
-            # 最終支払い額が残元金+利息を超える場合
-            if current_principal - principal_component < 0:
                 principal_component = current_principal
                 monthly_payment = current_principal + interest_component
 
         elif repayment_type == "元金均等返済":
-            # 元金部分の月々の返済額は固定
             monthly_principal_payment = principal / number_of_payments_total
             interest_component = current_principal * current_monthly_rate
             monthly_payment = monthly_principal_payment + interest_component
 
             principal_component = monthly_principal_payment
 
-            # 最終支払い額で元金が残らないように調整
             if principal_component > current_principal:
                  principal_component = current_principal
-                 monthly_payment = current_principal + interest_component # 最終支払い額は残元金＋利息
+                 monthly_payment = current_principal + interest_component
 
         total_payment += monthly_payment
         current_principal -= principal_component
@@ -225,14 +218,19 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
         # 繰り上げ返済の適用
         for er_idx, er in enumerate(early_repayments_sorted):
             if month == er['month'] and er['amount'] > 0:
-                # st.sidebar.write(f"月 {month}: 繰り上げ返済 {er['amount']:,}円が適用されました。") # デバッグ/情報表示
                 current_principal -= er['amount']
-                early_repayments_sorted[er_idx]['amount'] = 0 # 適用済みとしてマーク
+                early_repayments_sorted[er_idx]['amount'] = 0
 
                 if current_principal <= 0:
-                    break # ローンが繰り上げ返済により完済された場合
+                    break
 
-    return first_month_payment, total_payment, max(0, current_principal) # 最終残高が負にならないようにする
+        balance_history.append({'month': month, 'balance': max(0, current_principal)})
+
+    # シミュレーション期間が終わる前に完済した場合、残りの期間は残高0とする
+    while len(balance_history) < number_of_payments_total:
+        balance_history.append({'month': len(balance_history) + 1, 'balance': 0})
+
+    return first_month_payment, total_payment, max(0, current_principal), balance_history
 
 # --- Sidebar for Formulas ---
 st.sidebar.markdown('<div class="sidebar-header">シミュレーションに使った数式</div>', unsafe_allow_html=True)
@@ -305,7 +303,10 @@ if 'rate_changes_b_inputs' not in st.session_state:
 with col1:
     st.subheader("ローンAの条件")
     st.markdown('<div class="loan-section">', unsafe_allow_html=True)
-    loan_amount_a = st.number_input("ローンAの借入希望額 (円)", min_value=1000000, max_value=500000000, value=30000000, step=100000, key='la_amt')
+    # 借入希望額を万円単位で入力
+    loan_amount_a_man = st.number_input("ローンAの借入希望額 (万円)", min_value=100, max_value=50000, value=3000, step=100, key='la_amt_man')
+    loan_amount_a = loan_amount_a_man * 10000 # 内部計算用に円に戻す
+
     down_payment_a = st.number_input("ローンAの頭金 (円)", min_value=0, max_value=loan_amount_a, value=0, step=100000, key='la_dp')
     loan_term_years_a = st.slider("ローンAの返済期間 (年)", min_value=1, max_value=50, value=35, step=1, key='la_term')
     annual_interest_rate_a_initial = st.slider("ローンAの初期年利 (%)", min_value=0.1, max_value=10.0, value=1.5, step=0.01, key='la_rate_init')
@@ -340,7 +341,6 @@ with col1:
     if add_rc_a_button:
         if st.session_state.num_rate_changes_a < 10:
             st.session_state.num_rate_changes_a += 1
-            # Add a default new input row. This will cause a rerun and show a new field.
             st.session_state.rate_changes_a_inputs.append({'month': 1, 'new_rate': annual_interest_rate_a_initial})
         else:
             st.warning("金利変動は最大10回まで追加できます。")
@@ -357,7 +357,10 @@ with col1:
 with col2:
     st.subheader("ローンBの条件")
     st.markdown('<div class="loan-section">', unsafe_allow_html=True)
-    loan_amount_b = st.number_input("ローンBの借入希望額 (円)", min_value=1000000, max_value=500000000, value=30000000, step=100000, key='lb_amt')
+    # 借入希望額を万円単位で入力
+    loan_amount_b_man = st.number_input("ローンBの借入希望額 (万円)", min_value=100, max_value=50000, value=3000, step=100, key='lb_amt_man')
+    loan_amount_b = loan_amount_b_man * 10000 # 内部計算用に円に戻す
+
     down_payment_b = st.number_input("ローンBの頭金 (円)", min_value=0, max_value=loan_amount_b, value=0, step=100000, key='lb_dp')
     loan_term_years_b = st.slider("ローンBの返済期間 (年)", min_value=1, max_value=50, value=30, step=1, key='lb_term')
     annual_interest_rate_b_initial = st.slider("ローンBの初期年利 (%)", min_value=0.1, max_value=10.0, value=1.8, step=0.01, key='lb_rate_init')
@@ -392,7 +395,6 @@ with col2:
     if add_rc_b_button:
         if st.session_state.num_rate_changes_b < 10:
             st.session_state.num_rate_changes_b += 1
-            # Add a default new input row. This will cause a rerun and show a new field.
             st.session_state.rate_changes_b_inputs.append({'month': 1, 'new_rate': annual_interest_rate_b_initial})
         else:
             st.warning("金利変動は最大10回まで追加できます。")
@@ -414,32 +416,33 @@ with results_col1:
     st.subheader("ローンAの計算結果")
     if loan_amount_a - down_payment_a <= 0:
         st.error("ローンAの借入希望額が頭金以下です。")
-        monthly_payment_a, total_payment_a = 0, 0
+        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a = 0, 0, 0, []
     else:
-        monthly_payment_a, total_payment_a, final_balance_a = calculate_loan(
+        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a = calculate_loan(
             loan_amount_a, annual_interest_rate_a_initial, loan_term_years_a, repayment_type_a, down_payment_a,
             early_repayments_a, st.session_state.rate_changes_a_inputs
         )
-        st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_a):,}</p></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_a):,}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_a):,} (約{int(monthly_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_a):,} (約{int(total_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
         if final_balance_a > 0:
-            st.warning(f"注: ローンAの残高が残っています: ¥ {int(final_balance_a):,}")
+            st.warning(f"注: ローンAの残高が残っています: ¥ {int(final_balance_a):,} (約{int(final_balance_a/10000):,}万円)")
 
 # Calculate Loan B
 with results_col2:
     st.subheader("ローンBの計算結果")
     if loan_amount_b - down_payment_b <= 0:
         st.error("ローンBの借入希望額が頭金以下です。")
-        monthly_payment_b, total_payment_b = 0, 0
+        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b = 0, 0, 0, []
     else:
-        monthly_payment_b, total_payment_b, final_balance_b = calculate_loan(
+        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b = calculate_loan(
             loan_amount_b, annual_interest_rate_b_initial, loan_term_years_b, repayment_type_b, down_payment_b,
             early_repayments_b, st.session_state.rate_changes_b_inputs
         )
-        st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_b):,}</p></div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_b):,}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_b):,} (約{int(monthly_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_b):,} (約{int(total_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
         if final_balance_b > 0:
-            st.warning(f"注: ローンBの残高が残っています: ¥ {int(final_balance_b):,}")
+            st.warning(f"注: ローンBの残高が残っています: ¥ {int(final_balance_b):,} (約{int(final_balance_b/10000):,}万円)")
+
 
 # --- Comparison Result ---
 st.header("比較")
@@ -449,13 +452,55 @@ valid_loan_b_calc = (loan_amount_b - down_payment_b > 0) and (total_payment_b > 
 
 if valid_loan_a_calc and valid_loan_b_calc:
     if total_payment_a < total_payment_b:
-        st.markdown(f'<div class="comparison-result">ローンAの方が総支払額が**¥ {int(total_payment_b - total_payment_a):,}**少なくなります。</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="comparison-result">ローンAの方が総支払額が**約 ¥ {int((total_payment_b - total_payment_a)/10000):,}万円**少なくなります。</div>', unsafe_allow_html=True)
     elif total_payment_b < total_payment_a:
-        st.markdown(f'<div class="comparison-result">ローンBの方が総支払額が**¥ {int(total_payment_a - total_payment_b):,}**少なくなります。</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="comparison-result">ローンBの方が総支払額が**約 ¥ {int((total_payment_a - total_payment_b)/10000):,}万円**少なくなります。</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="comparison-result warning">両ローンの総支払額はほぼ同じです。</div>', unsafe_allow_html=True)
 else:
     st.info("比較を行うには、両方のローンで有効な借入額が必要です。")
+
+st.markdown("---")
+
+# --- Loan Balance Graph ---
+st.header("ローン残高推移グラフ")
+
+if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
+    chart_data = []
+
+    # ローンAのデータを追加
+    for item in balance_history_a:
+        chart_data.append({
+            '年数': item['month'] / 12,
+            '残高 (万円)': item['balance'] / 10000,
+            'ローン': 'ローンA'
+        })
+
+    # ローンBのデータを追加
+    for item in balance_history_b:
+        chart_data.append({
+            '年数': item['month'] / 12,
+            '残高 (万円)': item['balance'] / 10000,
+            'ローン': 'ローンB'
+        })
+
+    df_chart = pd.DataFrame(chart_data)
+
+    if not df_chart.empty:
+        chart = alt.Chart(df_chart).mark_line().encode(
+            x=alt.X('年数', title='年数'),
+            y=alt.Y('残高 (万円)', title='残高 (万円)'),
+            color=alt.Color('ローン', title='ローン'),
+            tooltip=['年数', '残高 (万円)', 'ローン']
+        ).properties(
+            title='ローン残高の推移'
+        ).interactive() # インタラクティブなグラフにする
+
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        st.warning("グラフを表示するには、少なくとも1つのローンで有効な借入額が必要です。")
+else:
+    st.info("グラフを表示するには、両方のローンで有効な借入額が必要です。")
 
 st.markdown("---")
 st.markdown("このアプリは概算計算を提供します。実際のローン条件は金融機関にご確認ください。")
