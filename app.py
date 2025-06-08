@@ -126,11 +126,11 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
         rate_changes (list): 金利変更のリスト [(月, 新年利), ...]
 
     Returns:
-        tuple: (最初の月々の支払い額, 総支払額, 最終残高, 残高推移リスト)
+        tuple: (最初の月々の支払い額, 総支払額, 最終残高, 残高推移リスト, 年間支払額リスト)
     """
     principal = loan_amount - down_payment
     if principal <= 0:
-        return 0, 0, 0, [] # 頭金がローン額以上の場合
+        return 0, 0, 0, [], [] # 頭金がローン額以上の場合
 
     number_of_payments_total = loan_term_years * 12
 
@@ -139,6 +139,7 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
     first_month_payment = 0 # 最初の月々の支払い額を格納
     payments_made = 0
     balance_history = [] # 残高推移を保存
+    annual_payments = {} # 年間支払額を保存
 
     # 金利変更と繰り上げ返済を月でソート
     if rate_changes:
@@ -161,6 +162,8 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
             # 残りの期間も履歴を追加 (残高0として)
             for remaining_month in range(month, int(number_of_payments_total) + 1):
                 balance_history.append({'month': remaining_month, 'balance': 0})
+                current_year = math.ceil(remaining_month / 12)
+                annual_payments[current_year] = annual_payments.get(current_year, 0) # 完済後は追加なし
             break
 
         # 金利変更の適用
@@ -186,7 +189,7 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
                     monthly_payment = current_principal / remaining_payments
                 except OverflowError:
                     st.error("計算中にオーバーフローエラーが発生しました。期間または金利を見直してください。")
-                    return 0, 0, current_principal, []
+                    return 0, 0, current_principal, [], []
 
             interest_component = current_principal * current_monthly_rate
             principal_component = monthly_payment - interest_component
@@ -225,56 +228,72 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
                     break
 
         balance_history.append({'month': month, 'balance': max(0, current_principal)})
+        current_year = math.ceil(month / 12)
+        annual_payments[current_year] = annual_payments.get(current_year, 0) + monthly_payment
+
 
     # シミュレーション期間が終わる前に完済した場合、残りの期間は残高0とする
     while len(balance_history) < number_of_payments_total:
         balance_history.append({'month': len(balance_history) + 1, 'balance': 0})
 
-    return first_month_payment, total_payment, max(0, current_principal), balance_history
+    # 年間支払額をリスト形式に変換
+    annual_payments_list = [{'year': year, 'total_payment': amount} for year, amount in annual_payments.items()]
+    annual_payments_list = sorted(annual_payments_list, key=lambda x: x['year'])
+
+    return first_month_payment, total_payment, max(0, current_principal), balance_history, annual_payments_list
 
 # --- Sidebar Content ---
 with st.sidebar:
+    # --- シミュレーションに使った数式 ---
     st.markdown('<div class="sidebar-header">シミュレーションに使った数式</div>', unsafe_allow_html=True)
-    st.subheader("元利均等返済 (Equal Principal and Interest Repayment)")
-    st.markdown(r"""
-    月々の支払い額 $M$:
-    $M = P \left[ \frac{r(1+r)^n}{(1+r)^n - 1} \right]$
+    formulas_data = [
+        {
+            "q": "元利均等返済 (Equal Principal and Interest Repayment)",
+            "a": r"""
+            月々の支払い額 $M$:
+            $M = P \left[ \frac{r(1+r)^n}{(1+r)^n - 1} \right]$
 
-    ここで、
-    - $P$: 借入元金
-    - $r$: 月利 (年利 / 1200)
-    - $n$: 返済回数 (返済期間(年) $\times$ 12)
-    """)
+            ここで、
+            - $P$: 借入元金
+            - $r$: 月利 (年利 / 1200)
+            - $n$: 返済回数 (返済期間(年) $\times$ 12)
+            """
+        },
+        {
+            "q": "元金均等返済 (Principal Equal Repayment)",
+            "a": r"""
+            月々の元金返済額 $M_P$:
+            $M_P = \frac{P}{n}$
 
-    st.subheader("元金均等返済 (Principal Equal Repayment)")
-    st.markdown(r"""
-    月々の元金返済額 $M_P$:
-    $M_P = \frac{P}{n}$
+            $k$回目の月々の利息額 $I_k$:
+            $I_k = (P - (k-1)M_P) \times r$
 
-    $k$回目の月々の利息額 $I_k$:
-    $I_k = (P - (k-1)M_P) \times r$
+            $k$回目の月々の支払い額 $M_k$:
+            $M_k = M_P + I_k$
 
-    $k$回目の月々の支払い額 $M_k$:
-    $M_k = M_P + I_k$
-
-    ここで、
-    - $P$: 借入元金
-    - $r$: 月利 (年利 / 1200)
-    - $n$: 返済回数 (返済期間(年) $\times$ 12)
-    - $k$: 返済回 (1, 2, ..., n)
-    """)
+            ここで、
+            - $P$: 借入元金
+            - $r$: 月利 (年利 / 1200)
+            - $n$: 返済回数 (返済期間(年) $\times$ 12)
+            - $k$: 返済回 (1, 2, ..., n)
+            """
+        }
+    ]
+    for i, formula in enumerate(formulas_data):
+        with st.expander(f"Q{i+1}. {formula['q']}"):
+            st.markdown(formula['a'])
     st.markdown("---")
     st.markdown("※繰り上げ返済や金利変動は、上記数式に基づいて毎月再計算されます。")
 
-    # --- サイドバーにQ&Aセクションを配置 ---
-    st.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
 
+    # --- よくある質問 (Q&A) ---
+    st.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
     qa_data = [
         {
             "q": "「ローン残高が残っています。」と表示されるのはなぜですか？",
             "a": """
             このメッセージは、設定した返済期間（年数）と月々の返済額では、ローンが完済されずにシミュレーション期間が終了してしまう場合に表示されます。
-            例えば、返済期間が**35年**と設定されている場合、35年が経過した時点でまだ残高があることを示します。
+            例えば、返済期間が**35年**と設定されている場合、35年が経過した時点（ローン終了時）でまだ残高があることを示します。
 
             考えられる理由としては、以下の点が挙げられます。
 
@@ -286,17 +305,11 @@ with st.sidebar:
             これらの条件を見直すことで、ローンが完済されるように調整することができます。
             """
         },
-        # 他のQ&A項目をここに追加できます
-        # {
-        #     "q": "別の質問",
-        #     "a": "別の回答"
-        # },
     ]
 
     for i, qa in enumerate(qa_data):
         with st.expander(f"Q{i+1}. {qa['q']}"):
             st.write(qa['a'])
-
 
 st.markdown("---")
 
@@ -432,9 +445,9 @@ with results_col1:
     st.subheader("ローンAの計算結果")
     if loan_amount_a - down_payment_a <= 0:
         st.error("ローンAの借入希望額が頭金以下です。")
-        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a = 0, 0, 0, []
+        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a, annual_payments_a = 0, 0, 0, [], []
     else:
-        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a = calculate_loan(
+        monthly_payment_a, total_payment_a, final_balance_a, balance_history_a, annual_payments_a = calculate_loan(
             loan_amount_a, annual_interest_rate_a_initial, loan_term_years_a, repayment_type_a, down_payment_a,
             early_repayments_a, st.session_state.rate_changes_a_inputs
         )
@@ -448,9 +461,9 @@ with results_col2:
     st.subheader("ローンBの計算結果")
     if loan_amount_b - down_payment_b <= 0:
         st.error("ローンBの借入希望額が頭金以下です。")
-        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b = 0, 0, 0, []
+        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b, annual_payments_b = 0, 0, 0, [], []
     else:
-        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b = calculate_loan(
+        monthly_payment_b, total_payment_b, final_balance_b, balance_history_b, annual_payments_b = calculate_loan(
             loan_amount_b, annual_interest_rate_b_initial, loan_term_years_b, repayment_type_b, down_payment_b,
             early_repayments_b, st.session_state.rate_changes_b_inputs
         )
@@ -482,11 +495,11 @@ st.markdown("---")
 st.header("ローン残高推移グラフ")
 
 if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
-    chart_data = []
+    chart_data_balance = []
 
     # ローンAのデータを追加
     for item in balance_history_a:
-        chart_data.append({
+        chart_data_balance.append({
             '年数': item['month'] / 12,
             '残高 (万円)': item['balance'] / 10000,
             'ローン': 'ローンA'
@@ -494,29 +507,72 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
 
     # ローンBのデータを追加
     for item in balance_history_b:
-        chart_data.append({
+        chart_data_balance.append({
             '年数': item['month'] / 12,
             '残高 (万円)': item['balance'] / 10000,
             'ローン': 'ローンB'
         })
 
-    df_chart = pd.DataFrame(chart_data)
+    df_chart_balance = pd.DataFrame(chart_data_balance)
 
-    if not df_chart.empty:
-        chart = alt.Chart(df_chart).mark_line().encode(
+    if not df_chart_balance.empty:
+        chart_balance = alt.Chart(df_chart_balance).mark_line().encode(
             x=alt.X('年数', title='年数'),
             y=alt.Y('残高 (万円)', title='残高 (万円)'),
             color=alt.Color('ローン', title='ローン'),
-            tooltip=['年数', '残高 (万円)', 'ローン']
+            tooltip=['年数', alt.Tooltip('残高 (万円)', format='.1f'), 'ローン']
         ).properties(
             title='ローン残高の推移'
         ).interactive() # インタラクティブなグラフにする
 
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart_balance, use_container_width=True)
     else:
-        st.warning("グラフを表示するには、少なくとも1つのローンで有効な借入額が必要です。")
+        st.warning("残高グラフを表示するには、少なくとも1つのローンで有効な借入額が必要です。")
 else:
-    st.info("グラフを表示するには、両方のローンで有効な借入額が必要です。")
+    st.info("残高グラフを表示するには、両方のローンで有効な借入額が必要です。")
+
+st.markdown("---")
+
+# --- Annual Payment Sum Graph ---
+st.header("年間支払額推移グラフ")
+
+if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
+    chart_data_annual = []
+
+    # ローンAのデータを追加
+    for item in annual_payments_a:
+        chart_data_annual.append({
+            '年数': item['year'],
+            '年間支払額 (万円)': item['total_payment'] / 10000,
+            'ローン': 'ローンA'
+        })
+
+    # ローンBのデータを追加
+    for item in annual_payments_b:
+        chart_data_annual.append({
+            '年数': item['year'],
+            '年間支払額 (万円)': item['total_payment'] / 10000,
+            'ローン': 'ローンB'
+        })
+
+    df_chart_annual = pd.DataFrame(chart_data_annual)
+
+    if not df_chart_annual.empty:
+        chart_annual = alt.Chart(df_chart_annual).mark_bar().encode(
+            x=alt.X('年数:O', title='年数'), # Nominal for discrete years
+            y=alt.Y('年間支払額 (万円)', title='年間支払額 (万円)'),
+            color=alt.Color('ローン', title='ローン'),
+            tooltip=['年数', alt.Tooltip('年間支払額 (万円)', format='.1f'), 'ローン']
+        ).properties(
+            title='年間支払額の推移'
+        ).interactive() # インタラクティブなグラフにする
+
+        st.altair_chart(chart_annual, use_container_width=True)
+    else:
+        st.warning("年間支払額グラフを表示するには、少なくとも1つのローンで有効な借入額が必要です。")
+else:
+    st.info("年間支払額グラフを表示するには、両方のローンで有効な借入額が必要です。")
+
 
 st.markdown("---")
 st.markdown("このアプリは概算計算を提供します。実際のローン条件は金融機関にご確認ください。")
