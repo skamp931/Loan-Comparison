@@ -328,13 +328,11 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 # Session state initialization for dynamic rate changes
-if 'num_rate_changes_a' not in st.session_state:
-    st.session_state.num_rate_changes_a = 0
+# Initialize rate_changes_a_inputs if it doesn't exist
 if 'rate_changes_a_inputs' not in st.session_state:
     st.session_state.rate_changes_a_inputs = []
 
-if 'num_rate_changes_b' not in st.session_state:
-    st.session_state.num_rate_changes_b = 0
+# Initialize rate_changes_b_inputs if it doesn't exist
 if 'rate_changes_b_inputs' not in st.session_state:
     st.session_state.rate_changes_b_inputs = []
 
@@ -353,7 +351,10 @@ with col1:
 
     st.markdown("---")
     st.subheader("ローンAの繰り上げ返済")
-    early_repayment_amount_a = st.number_input("繰り上げ返済額 (円)", min_value=0, value=0, step=100000, key='la_er_amt', help="一度に繰り上げ返済する金額です。")
+    # 繰り上げ返済額を万円単位で入力
+    early_repayment_amount_a_man = st.number_input("繰り上げ返済額 (万円)", min_value=0, value=0, step=10, key='la_er_amt_man', help="一度に繰り上げ返済する金額です。")
+    early_repayment_amount_a = early_repayment_amount_a_man * 10000 # 内部計算用に円に戻す
+
     early_repayment_month_a = st.number_input(f"繰り上げ返済を行う月 (1-{loan_term_years_a * 12})",
                                               min_value=0, max_value=loan_term_years_a * 12, value=0, step=1, key='la_er_month', help="ローン開始から何ヶ月目に繰り上げ返済を行うか指定します。")
     early_repayments_a = []
@@ -365,29 +366,43 @@ with col1:
     st.info("最大10回まで金利変更を追加できます。")
 
     # Display and get inputs for existing rate changes
-    rate_changes_a_temp_inputs = []
-    for i in range(st.session_state.num_rate_changes_a):
+    # Use a temporary list to collect current inputs
+    current_rate_changes_a_inputs = []
+    delete_index_a = -1
+
+    for i, rc in enumerate(st.session_state.rate_changes_a_inputs):
         st.write(f"金利変動 {i+1}")
-        col_rc_a1, col_rc_a2 = st.columns(2)
+        col_rc_a1, col_rc_a2, col_rc_a3 = st.columns([0.45, 0.45, 0.1]) # Add column for delete button
         with col_rc_a1:
-            month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_a*12 else loan_term_years_a*12, step=1, key=f'la_rc_month_{i}')
+            month = st.number_input(f"変更月 (1-{loan_term_years_a * 12})", min_value=1, max_value=loan_term_years_a * 12, value=rc['month'], step=1, key=f'la_rc_month_{i}')
         with col_rc_a2:
-            rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=max(0.01, annual_interest_rate_a_initial - 0.1*(i+1)), step=0.01, key=f'la_rc_rate_{i}')
-        rate_changes_a_temp_inputs.append({'month': month, 'new_rate': rate})
-    st.session_state.rate_changes_a_inputs = rate_changes_a_temp_inputs # Update session state after inputs
+            rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=rc['new_rate'], step=0.01, key=f'la_rc_rate_{i}')
+        with col_rc_a3:
+            st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True) # Adjust height for alignment
+            if st.button("削除", key=f'delete_la_rc_{i}'):
+                delete_index_a = i
+        current_rate_changes_a_inputs.append({'month': month, 'new_rate': rate})
+
+    # Update session state after all inputs are collected
+    st.session_state.rate_changes_a_inputs = current_rate_changes_a_inputs
+
+    # Apply deletion after the loop
+    if delete_index_a != -1:
+        del st.session_state.rate_changes_a_inputs[delete_index_a]
+        st.experimental_rerun() # Rerun to reflect the deletion immediately
 
     add_rc_a_button = st.button("ローンAの金利変動を追加", key='add_rc_a')
     if add_rc_a_button:
-        if st.session_state.num_rate_changes_a < 10:
-            st.session_state.num_rate_changes_a += 1
+        if len(st.session_state.rate_changes_a_inputs) < 10:
             st.session_state.rate_changes_a_inputs.append({'month': 1, 'new_rate': annual_interest_rate_a_initial})
+            st.experimental_rerun() # Rerun to show new input immediately
         else:
             st.warning("金利変動は最大10回まで追加できます。")
 
     reset_rc_a_button = st.button("ローンAの金利変動をリセット", key='reset_rc_a')
     if reset_rc_a_button:
-        st.session_state.num_rate_changes_a = 0
         st.session_state.rate_changes_a_inputs = []
+        st.experimental_rerun() # Rerun to clear inputs immediately
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -407,7 +422,10 @@ with col2:
 
     st.markdown("---")
     st.subheader("ローンBの繰り上げ返済")
-    early_repayment_amount_b = st.number_input("繰り上げ返済額 (円)", min_value=0, value=0, step=100000, key='lb_er_amt', help="一度に繰り上げ返済する金額です。")
+    # 繰り上げ返済額を万円単位で入力
+    early_repayment_amount_b_man = st.number_input("繰り上げ返済額 (万円)", min_value=0, value=0, step=10, key='lb_er_amt_man', help="一度に繰り上げ返済する金額です。")
+    early_repayment_amount_b = early_repayment_amount_b_man * 10000 # 内部計算用に円に戻す
+
     early_repayment_month_b = st.number_input(f"繰り上げ返済を行う月 (1-{loan_term_years_b * 12})",
                                               min_value=0, max_value=loan_term_years_b * 12, value=0, step=1, key='lb_er_month', help="ローン開始から何ヶ月目に繰り上げ返済を行うか指定します。")
     early_repayments_b = []
@@ -419,29 +437,42 @@ with col2:
     st.info("最大10回まで金利変更を追加できます。")
 
     # Display and get inputs for existing rate changes
-    rate_changes_b_temp_inputs = []
-    for i in range(st.session_state.num_rate_changes_b):
+    current_rate_changes_b_inputs = []
+    delete_index_b = -1
+
+    for i, rc in enumerate(st.session_state.rate_changes_b_inputs):
         st.write(f"金利変動 {i+1}")
-        col_rc_b1, col_rc_b2 = st.columns(2)
+        col_rc_b1, col_rc_b2, col_rc_b3 = st.columns([0.45, 0.45, 0.1]) # Add column for delete button
         with col_rc_b1:
-            month = st.number_input(f"変更月 (1-{loan_term_years_b * 12})", min_value=1, max_value=loan_term_years_b * 12, value=12*(i+1) if 12*(i+1) <= loan_term_years_b*12 else loan_term_years_b*12, step=1, key=f'lb_rc_month_{i}')
+            month = st.number_input(f"変更月 (1-{loan_term_years_b * 12})", min_value=1, max_value=loan_term_years_b * 12, value=rc['month'], step=1, key=f'lb_rc_month_{i}')
         with col_rc_b2:
-            rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=max(0.01, annual_interest_rate_b_initial - 0.1*(i+1)), step=0.01, key=f'lb_rc_rate_{i}')
-        rate_changes_b_temp_inputs.append({'month': month, 'new_rate': rate})
-    st.session_state.rate_changes_b_inputs = rate_changes_b_temp_inputs # Update session state after inputs
+            rate = st.number_input(f"新金利 (%)", min_value=0.01, max_value=10.0, value=rc['new_rate'], step=0.01, key=f'lb_rc_rate_{i}')
+        with col_rc_b3:
+            st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True) # Adjust height for alignment
+            if st.button("削除", key=f'delete_lb_rc_{i}'):
+                delete_index_b = i
+        current_rate_changes_b_inputs.append({'month': month, 'new_rate': rate})
+
+    # Update session state after all inputs are collected
+    st.session_state.rate_changes_b_inputs = current_rate_changes_b_inputs
+
+    # Apply deletion after the loop
+    if delete_index_b != -1:
+        del st.session_state.rate_changes_b_inputs[delete_index_b]
+        st.experimental_rerun() # Rerun to reflect the deletion immediately
 
     add_rc_b_button = st.button("ローンBの金利変動を追加", key='add_rc_b')
     if add_rc_b_button:
-        if st.session_state.num_rate_changes_b < 10:
-            st.session_state.num_rate_changes_b += 1
+        if len(st.session_state.rate_changes_b_inputs) < 10:
             st.session_state.rate_changes_b_inputs.append({'month': 1, 'new_rate': annual_interest_rate_b_initial})
+            st.experimental_rerun() # Rerun to show new input immediately
         else:
             st.warning("金利変動は最大10回まで追加できます。")
 
     reset_rc_b_button = st.button("ローンBの金利変動をリセット", key='reset_rc_b')
     if reset_rc_b_button:
-        st.session_state.num_rate_changes_b = 0
         st.session_state.rate_changes_b_inputs = []
+        st.experimental_rerun() # Rerun to clear inputs immediately
 
     st.markdown('</div>', unsafe_allow_html=True)
 
