@@ -284,12 +284,13 @@ with st.sidebar:
             """
         }
     ]
-    for i, formula in enumerate(formulas_data):
-        with st.expander(f"Q{i+1}. {formula['q']}"):
-            st.markdown(formula['a'])
+
     st.markdown("---")
     st.markdown("※繰り上げ返済や金利変動は、上記数式に基づいて毎月再計算されます。")
 
+    for i, formula in enumerate(formulas_data):
+        with st.expander(f"Q{i+1}. {formula['q']}"):
+            st.markdown(formula['a'])
 
     # --- よくある質問 (Q&A) ---
     st.markdown('<div class="sidebar-header">よくある質問 (Q&A)</div>', unsafe_allow_html=True)
