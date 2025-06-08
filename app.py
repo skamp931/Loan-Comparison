@@ -163,12 +163,14 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
 
     # 毎月シミュレーションを実行
     for month in range(1, int(number_of_payments_total) + 1):
+        # 現在の年を計算（1ヶ月目が1年目の開始）
+        current_year = math.ceil(month / 12)
+
         if current_principal <= 0: # ローンが完済された場合
             # 残りの期間も履歴を追加 (残高0として)
             for remaining_month in range(month, int(number_of_payments_total) + 1):
                 balance_history.append({'month': remaining_month, 'balance': 0})
-                current_year = math.ceil(remaining_month / 12)
-                annual_payments[current_year] = annual_payments.get(current_year, 0) # 完済後は追加なし
+                # 完済後は年間支払い額には追加しない
             break
 
         # 金利変更の適用
@@ -206,15 +208,20 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
                 monthly_payment = current_principal + interest_component
 
         elif repayment_type == "元金均等返済":
+            # 月々の元金返済額は固定（初期借入元金に対して計算）
             monthly_principal_payment = principal / number_of_payments_total
             interest_component = current_principal * current_monthly_rate
             monthly_payment = monthly_principal_payment + interest_component
 
             principal_component = monthly_principal_payment
 
+            # 最終支払い額で元金が残らないように調整
             if principal_component > current_principal:
                  principal_component = current_principal
                  monthly_payment = current_principal + interest_component
+
+        # 年間支払額に加算
+        annual_payments[current_year] = annual_payments.get(current_year, 0) + monthly_payment
 
         total_payment += monthly_payment
         current_principal -= principal_component
@@ -233,8 +240,6 @@ def calculate_loan(loan_amount, annual_interest_rate, loan_term_years, repayment
                     break
 
         balance_history.append({'month': month, 'balance': max(0, current_principal)})
-        current_year = math.ceil(month / 12)
-        annual_payments[current_year] = annual_payments.get(current_year, 0) + monthly_payment
 
 
     # シミュレーション期間が終わる前に完済した場合、残りの期間は残高0とする
@@ -565,11 +570,10 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
     df_chart_annual = pd.DataFrame(chart_data_annual)
 
     if not df_chart_annual.empty:
-        chart_annual = alt.Chart(df_chart_annual).mark_bar().encode(
-            x=alt.X('年数:O', title='年数', axis=alt.Axis(format='d')), # Format as integer
+        chart_annual = alt.Chart(df_chart_annual).mark_line().encode( # mark_barからmark_lineへ
+            x=alt.X('年数', title='年数', axis=alt.Axis(format='d')), # :O から :Q を意識した記述へ
             y=alt.Y('年間支払額 (万円)', title='年間支払額 (万円)'),
             color=alt.Color('ローン', title='ローン'),
-            xOffset='ローン', # Offset bars for different loans to put them side-by-side
             tooltip=[alt.Tooltip('年数', format='.0f'), alt.Tooltip('年間支払額 (万円)', format='.1f'), 'ローン']
         ).properties(
             title='年間支払額の推移'
