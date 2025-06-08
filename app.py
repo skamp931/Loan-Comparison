@@ -284,7 +284,6 @@ with st.sidebar:
             """
         }
     ]
-
     for i, formula in enumerate(formulas_data):
         with st.expander(f"Q{i+1}. {formula['q']}"):
             st.markdown(formula['a'])
@@ -459,7 +458,8 @@ with results_col1:
         )
         st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_a):,} (約{int(monthly_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_a):,} (約{int(total_payment_a/10000):,}万円)</p></div>', unsafe_allow_html=True)
-        if final_balance_a > 0:
+        # Check if balance is significantly greater than 0
+        if final_balance_a > 0.01: # Use a small threshold to avoid floating point issues
             st.warning(f"注: ローンAの残高が残っています: ¥ {int(final_balance_a):,}")
 
 # Calculate Loan B
@@ -475,7 +475,8 @@ with results_col2:
         )
         st.markdown(f'<div class="metric-card"><h3>最初の月々の支払い額</h3><p>¥ {int(monthly_payment_b):,} (約{int(monthly_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
         st.markdown(f'<div class="metric-card"><h3>総支払額</h3><p>¥ {int(total_payment_b):,} (約{int(total_payment_b/10000):,}万円)</p></div>', unsafe_allow_html=True)
-        if final_balance_b > 0:
+        # Check if balance is significantly greater than 0
+        if final_balance_b > 0.01: # Use a small threshold to avoid floating point issues
             st.warning(f"注: ローンBの残高が残っています: ¥ {int(final_balance_b):,}")
 
 
@@ -523,10 +524,10 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
 
     if not df_chart_balance.empty:
         chart_balance = alt.Chart(df_chart_balance).mark_line().encode(
-            x=alt.X('年数', title='年数'),
+            x=alt.X('年数', title='年数', axis=alt.Axis(format='d')), # Format as integer
             y=alt.Y('残高 (万円)', title='残高 (万円)'),
             color=alt.Color('ローン', title='ローン'),
-            tooltip=['年数', alt.Tooltip('残高 (万円)', format='.1f'), 'ローン']
+            tooltip=[alt.Tooltip('年数', format='.0f'), alt.Tooltip('残高 (万円)', format='.1f'), 'ローン']
         ).properties(
             title='ローン残高の推移'
         ).interactive() # インタラクティブなグラフにする
@@ -565,11 +566,11 @@ if (loan_amount_a - down_payment_a > 0) or (loan_amount_b - down_payment_b > 0):
 
     if not df_chart_annual.empty:
         chart_annual = alt.Chart(df_chart_annual).mark_bar().encode(
-            x=alt.X('年数:O', title='年数'), # Nominal for discrete years
+            x=alt.X('年数:O', title='年数', axis=alt.Axis(format='d')), # Format as integer
             y=alt.Y('年間支払額 (万円)', title='年間支払額 (万円)'),
             color=alt.Color('ローン', title='ローン'),
-            xOffset='ローン', # Offset bars for different loans
-            tooltip=['年数', alt.Tooltip('年間支払額 (万円)', format='.1f'), 'ローン']
+            column=alt.Column('ローン', header=alt.Header(titleOrient="bottom", labelOrient="bottom")), # Separate charts by loan
+            tooltip=[alt.Tooltip('年数', format='.0f'), alt.Tooltip('年間支払額 (万円)', format='.1f'), 'ローン']
         ).properties(
             title='年間支払額の推移'
         ).interactive() # インタラクティブなグラフにする
